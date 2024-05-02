@@ -1,0 +1,364 @@
+#include "DigitLedDisplay.h"
+#include <EEPROM.h>
+
+int temp, x = 0, y = 0, voltage,live_temp,humidity,temprature, t = 0, l = 1000;
+int mode = 0, set = 0, s = 0;
+int aa, p, time, m = 1;
+
+#define DIN 5
+#define CS 6
+#define CLK 7
+
+#define din 4
+#define cs 3
+#define clk 2
+
+#define MODE A5
+#define SET A2
+#define INC A4
+#define DEC A3
+
+#define heater 8
+DigitLedDisplay ld = DigitLedDisplay(DIN, CS, CLK);
+DigitLedDisplay tm = DigitLedDisplay(din, cs, clk);
+
+void setup() {
+
+  Serial.begin(9600);
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
+
+  pinMode(DEC, INPUT);
+  pinMode(INC, INPUT);
+  pinMode(SET, INPUT);
+  pinMode(MODE, INPUT);
+
+  pinMode(heater, OUTPUT);
+
+  ld.setBright(3);
+  tm.setDigitLimit(4);
+  tm.setBright(3);
+  ld.setDigitLimit(6);
+  
+  tm.printDigit(0);
+  tm.printDigit(0, 1);
+  tm.printDigit(0, 2);
+  tm.printDigit(0, 3);
+  ld.printDigit(0);
+  ld.printDigit(0, 1);
+  ld.printDigit(0, 2); 
+  ld.printDigit(0, 3);
+  ld.printDigit(0, 4);
+  ld.printDigit(0, 5);
+  //EPROM.write(28,0);
+  ON();
+}
+
+void loop() {
+   live_temp = map(analogRead(A1), 0, 1024, 0, 500);
+ humidity = live_temp - 32;
+ ld.printDigit(humidity,3);
+
+  MOD();
+}
+
+void voltage_drop() {
+
+  voltage = map(analogRead(A0), 0, 1024, 0, 6);
+
+  if (voltage < 3) {
+    writeIntToEEPROM(55, p);
+    digitalWrite(heater, LOW);
+    OFF();
+  }
+}
+
+void volt() {
+  if (voltage >= 3) {
+    ON();
+    int remaining = readIntFromEEPROM(55);
+    ld.printDigit(temprature);
+    SENSOR();
+    //tm.printDigit(remaining);
+    delay(1000);
+    /* for( p =remaining ; p<= time ;p++)
+            {
+              tm.printDigit(p);
+              delay(1000);
+             // if(p==remaining)
+              {
+               // OFF();
+              }
+            }*/
+  }
+}
+
+void COUNTER() 
+{
+  int r, b, h, g;
+  r = EEPROM.read(0);
+  b = EEPROM.read(1);
+  h = EEPROM.read(2);
+  g = EEPROM.read(3);
+
+ 
+
+  time = (g * 1000) + (h * 100) + (b * 10) + r;
+
+                  tm.off();
+                  ld.off();
+                  delay(100);
+                  // tm.printDigit(time);
+                  tm.on();
+                  ld.on();
+                  delay(100);
+                  tm.clear();
+                  ld.clear();
+                  delay(100);
+
+                  tm.printDigit(0);
+                  tm.printDigit(0, 1);
+                  tm.printDigit(0, 2);
+                  tm.printDigit(0, 3);
+                  ld.printDigit(0);
+                  ld.printDigit(0, 1);
+                  ld.printDigit(0, 2);
+                  ld.printDigit(0, 3);
+                  ld.printDigit(0, 4);
+                  ld.printDigit(0, 5);
+                  delay(500);
+
+  for (p = 0; p <= time; p++) 
+  {
+      tm.printDigit(p);
+      hum();
+      ld.printDigit(temprature);
+        voltage = map(analogRead(A0), 0, 1024, 0, 6);
+      delay(1000);
+    if(voltage<3)
+    { 
+      while(1)
+      {
+        writeIntToEEPROM(55, p);
+        digitalWrite(heater,LOW);
+        tm.printDigit(readIntFromEEPROM(55));
+        hum();
+        ld.printDigit(temprature);
+        
+       if(voltage>=3)
+        {
+          digitalWrite(heater, HIGH);      
+          delay(1000);
+          digitalWrite(heater, LOW);
+          delay(1000);
+          ld.printDigit(temprature);
+          hum();
+          int remaining = readIntFromEEPROM(55);
+          ld.printDigit(temprature);
+          SENSOR();
+          //tm.printDigit(remaining);
+          delay(100);
+          for( p =remaining ; p<= time ;p++)
+              {
+                tm.printDigit(p);
+                delay(1000);
+                if(p==remaining)
+                {
+                  OFF();
+                }
+              }
+        }
+      }
+    }
+
+    if(analogRead(A1)<500)
+    {
+        digitalWrite(heater, HIGH);      
+        delay(1000);
+        digitalWrite(heater, LOW);
+        delay(1000);
+        ld.printDigit(temprature);
+    } 
+    if (p == time) 
+    {
+      OFF();
+    }
+  }
+}
+
+void hum()
+{
+  live_temp = map(analogRead(A1), 0, 1024, 0, 500);
+  humidity = live_temp - 32;
+   ld.printDigit(humidity,3);
+}
+void SENSOR() {
+  int q, w, e;
+  q = EEPROM.read(8);
+  w = EEPROM.read(9);
+  e = EEPROM.read(10);
+
+  temprature = (e * 100) + (w * 10) + (q);
+ /*  live_temp = map(analogRead(A1), 0, 1024, 0, 500);
+ humidity = live_temp - 32;-*/
+//  ld.printDigit(humidity, 3);
+  ld.printDigit(temprature);
+  if (live_temp <= temprature) {
+    //relay();
+    digitalWrite(heater, HIGH);
+    delay(100);
+    digitalWrite(heater, LOW);
+    delay(100);
+  }
+  if (live_temp == temprature) {
+  }
+}
+
+void MOD() {
+  b1();
+
+  if (mode == 0) {
+    // while(1);
+  }
+
+  if (mode == 1) {
+    TIME();
+  }
+
+  if (mode == 2) {
+    TEMP();
+  }
+  if (mode == 3) {
+    SENSOR();
+    COUNTER();
+  }
+  if (mode == 4) {
+    mode = 0;
+  }
+}
+
+
+void b1() {
+  if (digitalRead(MODE) == 0) {
+    while (digitalRead(MODE) == 0) {}
+
+    mode = mode + 1;
+    if (mode >= 4) {
+      mode = 0;
+    }
+  }
+}
+
+
+
+void ON()
+
+{
+  tm.printDigit(0);
+  tm.printDigit(0, 1);
+  tm.printDigit(0, 2);
+  tm.printDigit(0, 3);
+  ld.printDigit(0);
+  ld.printDigit(0, 1);
+  ld.printDigit(0, 2);
+  ld.printDigit(0, 3);
+  ld.printDigit(0, 4);
+  ld.printDigit(0, 5);
+  for (int t = 0; t <= 15; t++) {
+    EEPROM.write(t, 0);
+  }
+}
+
+void OFF() {
+ 
+    tm.printDigit(0);
+    tm.printDigit(0, 1);
+    tm.printDigit(0, 2);
+    tm.printDigit(0, 3);
+    ld.printDigit(0);
+    ld.printDigit(0, 1);
+    ld.printDigit(0, 2);
+    ld.clear();
+    ld.off();
+    tm.clear();
+    tm.off();
+
+}
+
+void TIME() {
+
+  if (digitalRead(SET) == 0) {
+    while (digitalRead(SET) == 0) {}
+    set = set + 1;
+    x = 0;
+    if (set == 4) {
+      set = 0;
+    }
+  }
+
+
+  if (digitalRead(INC) == 0) {
+    while (digitalRead(INC) == 0) {
+      x = x + 1;
+      EEPROM.write(set, x);
+      tm.printDigit(x, set);
+      delay(500);
+
+      if (x == 9) {
+        x = 0;
+        tm.printDigit(set, x);
+      }
+    }
+  }
+
+  if (digitalRead(DEC) == 0) {
+    while (digitalRead(DEC) == 0) {
+      x = x - 1;
+      if (x < 0) {
+        x = 9;
+        EEPROM.write(set, x);
+        tm.printDigit(x, set);
+        delay(500);
+      }
+    }
+  }
+}
+
+
+
+void TEMP() {
+  if (digitalRead(SET) == 0) {
+    while (digitalRead(SET) == 0)
+      ;
+    s = s + 1;
+    t = 0;
+    if (s == 3) {
+      s = 0;
+    }
+  }
+
+  if (digitalRead(INC) == 0) {
+    while (digitalRead(INC) == 0)
+      ;
+    t = t + 1;
+    ld.printDigit(t, s);
+    EEPROM.write(s + 8, t);
+    delay(500);                      
+    if (t > 9) {
+      t = 0;
+    }
+  }
+  if (digitalRead(DEC) == 0) {
+    while (digitalRead(DEC) == 0);
+    t = t - 1;
+    EEPROM.write(s + 8, t);
+    ld.printDigit(t, s);
+    delay(500);
+    if (t <= 0) {
+      t = 9;
+    }
+  }
+}
+  
+
+ 
