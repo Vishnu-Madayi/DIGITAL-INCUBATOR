@@ -2,7 +2,563 @@
 #include <EEPROM.h>
 
 int temp, x = 0, y = 0, voltage,live_temp,humidity,temprature, t = 0, l = 1000;
-int mode = 0, set = 0, s = 0;
+int mode = 0, set = 0,
+
+
+#include <EEPROM.h>
+// spi for timer display (4 digit)
+
+#define DATA 4
+#define CS 3
+#define CLK 2
+
+//spi for temp and hum (6 digit)
+
+#define DATA2 5
+#define CS2 6
+#define CLK2 7
+
+// buttons
+
+#define FCN A5
+#define SET A2
+#define INC A4
+#define DEC A3
+
+int add,z, data,inc,dec,x,mode=0,set=0,s=0,fin,rawValue,tem,count_sec,sec;
+
+  float millivolts,temperature;
+
+int hum,time,hour,min,temp,current_temp,time2=0,temp2,j;
+
+void setup() 
+{
+pinMode(11,OUTPUT);
+ 
+pinMode(CLK , OUTPUT);
+pinMode(DATA , OUTPUT);
+pinMode(CS , OUTPUT);
+
+pinMode(CLK2 , OUTPUT);
+pinMode(DATA2 , OUTPUT);
+pinMode(CS2 , OUTPUT);
+
+pinMode(FCN,INPUT);
+pinMode(INC,INPUT);
+pinMode(DEC,INPUT);
+pinMode(SET,INPUT);
+
+INT_MAX19_1();
+INT_MAX19_2(); 
+INT_TEMP_HUM_DISP();
+INT_TIMER_DISP();
+ Serial.begin(115200);
+
+//TEMP_SENSOR();
+ //POWER_BAK();
+COUNTER2();
+
+
+}
+
+void loop() 
+{
+  MODE();
+ Serial.println(time2);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void MODE()
+{
+  if(digitalRead(FCN)==0)
+  {
+    while(digitalRead(FCN)==0){}
+    mode++;
+  } 
+  if(mode==1)
+  {
+    DIS_TIME();
+    TIMER_SET();    
+  }
+  if(mode==2)
+  {
+    DIS_TEMP();
+    TEMPERATURE_SET();
+  }
+  if (mode==3)
+  {
+    
+     COUNTER();
+    
+  }
+  if(mode==4)
+  {
+    mode=0;
+  }
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void TIMER_SET()
+{
+    if (digitalRead(SET) == 0) {
+    while (digitalRead(SET) == 0) {}
+    set = set + 1;
+  //  x = 0;
+    if (set > 4) {
+      set = 0;
+    }
+  }
+
+        DATA_SEND(set,0x7f,1);
+        delay(50);
+        DATA_SEND(set,x,1);
+        delay(50);
+
+  if (digitalRead(INC) == 0) {
+    while (digitalRead(INC) == 0) {}
+        x += 1;
+        EEPROM.write(set+1,x);
+        DATA_SEND(set,x,1);
+        if(set == 3)
+        {
+          DATA_SEND(set,(x | 0b10000000),1);
+        }
+        if (x > 9) 
+        {
+        x = 0;
+        EEPROM.write(set+1,x);
+        DATA_SEND(set, x,1);
+      
+        }
+    
+  }
+
+  if (digitalRead(DEC) == 0)
+ {
+    while (digitalRead(DEC) == 0) {}
+      x = x - 1;
+       EEPROM.write(set+1,x);
+      DATA_SEND(set,x,1);
+      if (x < 0) {
+        x = 9;
+        EEPROM.write(set+1,x);
+        DATA_SEND(set,x,1);
+     
+      }
+    
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void TEMPERATURE_SET()
+{
+    if (digitalRead(SET) == 0) {
+    while (digitalRead(SET) == 0) {}
+   s = s + 1;
+ //   x = 0;
+    if (s > 3) {
+      s = 0;
+    }
+  }
+
+        DATA_SEND(s ,0x7f,2);
+        delay(50);
+        DATA_SEND(s,x,2);
+        delay(50);
+
+  if (digitalRead(INC) == 0) {
+    while (digitalRead(INC) == 0) {} 
+      x = x + 1;
+      EEPROM.write(s+10,x);  // eprom form 11 to 13
+      DATA_SEND(s,x,2);
+        if (x == 9)
+         {
+        x = 0;
+        EEPROM.write(s+10,x);
+        DATA_SEND(s, x,2); 
+      }
+    
+
+  }
+
+  if (digitalRead(DEC) == 0)
+  {
+    while (digitalRead(DEC) == 0) {}
+      x = x - 1;
+      DATA_SEND(s,x,2);
+      if (x < 0) {
+        x = 9;
+        EEPROM.write(s+10,x);
+        DATA_SEND(s,x,2);
+     
+      }
+    
+  }
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void COUNTER()
+{
+  
+  min = time % 100;
+  hour = time / 100;
+  TIMER_BLINK();
+
+ for(int i = 0 ; i <= time ; i++ )
+ {
+  count_sec=60;
+  for( j = min ; j >= 0 ; j-- )
+  {
+    count_sec-=1;
+    
+   
+    DATA_SEND(1,(j%10),1); 
+    DATA_SEND(2,(j/10),1);
+    DATA_SEND(3,((hour%10) | 0b10000000),1); 
+    DATA_SEND(4,hour/10,1);
+  
+    EEPROM.write(20,(j%10));
+    EEPROM.write(21,(j/10));
+    EEPROM.write(22,(hour%10));
+    EEPROM.write(23,(hour/10));
+     while( (hour == 0)&&(count_sec==0) ) 
+      {
+        DATA_SEND(1,0,1);
+        DATA_SEND(2,0,1);
+        DATA_SEND(3,0,1);
+        DATA_SEND(4,0,1);   
+        EEPROM.write(100,0);
+        EEPROM.write(101,0);
+        EEPROM.write(102,0);
+        EEPROM.write(103,0);
+        digitalWrite(11,LOW);
+        mode=0;
+        
+   } 
+       
+    
+
+        
+   // fin=(hum/500)+20; // current temp  
+
+      while (z < 6000)
+        {
+            if(z%500==0)
+            { 
+              for(int i =0; i<=500;i++)    // takeing avg of 500 adc value 
+              {
+              rawValue = analogRead(A0); 
+              millivolts = rawValue *(5.5/1024);
+              temperature = millivolts *100;
+              hum += temperature;
+              }
+                  fin=temperature+40;
+                  temp=( (EEPROM.read(13)*100)+(EEPROM.read(12)*10)+(EEPROM.read(11)));    //reading temp that set by user
+                  hum = (1/(fin -(millivolts))*100 );
+
+                  Serial.println(fin);
+                  DATA_SEND(1,fin%10,2);   // display current temp
+                  DATA_SEND(2,(fin/10)%10,2);
+                  DATA_SEND(3,(fin/10)/10,2);
+
+                  DATA_SEND(6,(hum/10)/10,2);  // display current hum
+                  DATA_SEND(5,((hum/10)%10),2);
+                  DATA_SEND(4,(hum%10),2); 
+                if(fin<temp)
+                {
+                  digitalWrite(11,HIGH);
+                }
+                else
+                {
+                  digitalWrite(11,LOW);
+                }
+            }
+            z++; 
+          delay(10);
+        } z=0;
+         
+  }
+  hour=hour-1;
+  min=59;
+ } 
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void POWER_LOS()
+{
+ if(  analogRead(A1) < 100 )
+  {
+      EEPROM.write(200,(j%10));
+      EEPROM.write(201,(j/10));
+      EEPROM.write(202,(hour%10));
+      EEPROM.write(203,(hour/10));
+  }
+}
+void POWER_BAK()
+{
+   // if( analogRead(A1) >= 100 )
+    {
+         DATA_SEND(1, (EEPROM.read(200)),1);
+         DATA_SEND(2, (EEPROM.read(201)),1);
+         DATA_SEND(3, (EEPROM.read(202)| 0b10000000),1);
+         DATA_SEND(4,(EEPROM.read(203)),1); 
+
+         time2= (EEPROM.read(203)*1000)+(EEPROM.read(202)*100)+(EEPROM.read(201)*10)+(EEPROM.read(200)); 
+         
+     
+ }
+}
+
+void COUNTER2()
+{
+if( analogRead(A1) > 100 )
+{
+       time2= (EEPROM.read(23)*1000)+(EEPROM.read(22)*100)+(EEPROM.read(21)*10)+(EEPROM.read(20)); 
+       // time2 =2222;
+         int min2 = time2 % 100;
+         int hour2 = time2 / 100;
+
+         DATA_SEND(1, (min2%10),1);
+         DATA_SEND(2, (min2/10),1);
+         DATA_SEND(3, (hour2%10 | 0b10000000),1);
+         DATA_SEND(4,hour2/10,1); 
+
+ 
+
+ for(int q = 0 ; q <= time2 ; q++ )
+ {
+  sec=60;
+  for( int p = min2 ; p >= 0 ; p-- )
+  {
+    sec=sec-1;
+    DATA_SEND(1,(p%10),1); 
+    DATA_SEND(2,(p/10),1);
+    DATA_SEND(3,((hour2%10) | 0b10000000),1); 
+    DATA_SEND(4,hour2/10,1);
+    
+      
+    EEPROM.write(20,(j%10));
+    EEPROM.write(21,(j/10));
+    EEPROM.write(22,(hour%10));
+    EEPROM.write(23,(hour/10));
+    
+    while( (hour2 == 0)&&(sec==0) ) 
+      {    
+        DATA_SEND(1,0,1);
+        DATA_SEND(2,0,1);
+        DATA_SEND(3,0,1);
+        DATA_SEND(4,0,1);   
+        EEPROM.write(100,0);
+        EEPROM.write(101,0);
+        EEPROM.write(102,0);
+        EEPROM.write(103,0);
+        digitalWrite(11,LOW);
+        mode=0;
+        
+   } 
+       
+    
+      for(int i =0; i<=500;i++)    // takeing avg of 500 adc value 
+        {
+         rawValue = analogRead(A0); 
+         millivolts = rawValue *(5.5/1024);
+         temperature = millivolts *100;
+         hum += temperature;
+        }
+                                                               
+   // fin=(hum/500)+20; // current temp  
+   fin=temperature+40;
+    temp=( (EEPROM.read(13)*100)+(EEPROM.read(12)*10)+(EEPROM.read(11)));    //reading temp that set by user
+      hum = 1/(fin -(millivolts))*1000 ;
+   
+    DATA_SEND(1,fin%10,2);   // display current temp
+    DATA_SEND(2,(fin/10)%10,2);
+    DATA_SEND(3,(fin/10)/10,2);
+
+    DATA_SEND(6,(hum/10)/10,2);  // display current hum
+    DATA_SEND(5,((hum/10)%10),2);
+    DATA_SEND(4,(hum%10),2); 
+   if(fin<temp)
+   {
+    digitalWrite(11,HIGH);
+   }
+   else
+   {
+    digitalWrite(11,LOW);
+   }
+
+      while (z < 6000)
+        {
+          if(z % 500==0)
+            { 
+              for(int i =0; i<=500;i++)    // takeing avg of 500 adc value 
+              {
+              rawValue = analogRead(A0); 
+              millivolts = rawValue *(5.5/1024);
+              temperature = millivolts *100;
+              hum +=temperature;
+              }
+                  fin=temperature+20;
+                  temp=( (EEPROM.read(13)*100)+(EEPROM.read(12)*10)+(EEPROM.read(11)));    //reading temp that set by user
+                  hum = (1/(fin -(millivolts))*100 );
+
+                  Serial.println(fin);
+                  DATA_SEND(1,fin%10,2);   // display current temp
+                  DATA_SEND(2,(fin/10)%10,2);
+                  DATA_SEND(3,(fin/10)/10,2);
+
+                  DATA_SEND(6,(hum/10)/10,2);  // display current hum
+                  DATA_SEND(5,((hum/10)%10),2);
+                  DATA_SEND(4,(hum%10),2); 
+                if(fin<temp)
+                {
+                  digitalWrite(11,HIGH);
+                }
+                else
+                {
+                  digitalWrite(11,LOW);
+                }
+            }
+          MODE();
+          z++; 
+          delay(10); 
+        } z=0;
+  }
+  hour2-=1;
+  min2=59;
+
+  } 
+}
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void DIS_TIME()
+{
+    time= (EEPROM.read(5)*1000)+(EEPROM.read(4)*100)+(EEPROM.read(3)*10)+(EEPROM.read(2)); 
+   //EEPROM.write(50,time);
+  
+   DATA_SEND(1, (EEPROM.read(2)),1);
+   DATA_SEND(2, (EEPROM.read(3)),1);
+   DATA_SEND(3, (EEPROM.read(4)| 0b10000000),1);
+   DATA_SEND(4,(EEPROM.read(5)),1);   
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void TIMER_BLINK()
+{
+   DATA_SEND(1, (EEPROM.read(2)),1);
+   DATA_SEND(2, (EEPROM.read(3)),1);
+   DATA_SEND(3, (EEPROM.read(4)| 0b10000000),1);
+   DATA_SEND(4,(EEPROM.read(5)),1);
+   delay(500);
+   DATA_SEND(1,0x7f,1);
+   DATA_SEND(2,0x7f,1);
+   DATA_SEND(3, (0x7f | 0b10000000),1);
+   DATA_SEND(4,0x7f,1);
+   delay(500);
+   DATA_SEND(1, (EEPROM.read(2)),1);
+   DATA_SEND(2, (EEPROM.read(3)),1);
+   DATA_SEND(3, (EEPROM.read(4)| 0b10000000),1);
+   DATA_SEND(4,(EEPROM.read(5)),1);
+   delay(500);
+   DATA_SEND(1,0x7f,1);
+   DATA_SEND(2,0x7f,1);
+   DATA_SEND(3, (0x7f | 0b10000000),1);
+   DATA_SEND(4,0x7f,1);
+   delay(500);
+   DATA_SEND(1, (EEPROM.read(2)),1);
+   DATA_SEND(2, (EEPROM.read(3)),1);
+   DATA_SEND(3, (EEPROM.read(4) | 0b10000000),1);
+   DATA_SEND(4,(EEPROM.read(5)),1);      
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void DIS_TEMP()
+{
+  temp=( (EEPROM.read(13)*100)+(EEPROM.read(12)*10)+(EEPROM.read(11)));
+  
+  DATA_SEND(1,(EEPROM.read(11)),2);
+  DATA_SEND(2,(EEPROM.read(12)),2);
+  DATA_SEND(3,(EEPROM.read(13)),2);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void DATA_SEND(int add,int data ,int dis )
+{
+if(dis==1)
+  {
+    digitalWrite(CS,LOW);
+    for(int i = 7 ; i >= 0 ; i --)
+    {
+      digitalWrite(CLK , LOW);
+      digitalWrite(DATA , (add>>i) & 0x01);
+      digitalWrite(CLK,HIGH);
+    }
+    for(int i = 7 ;  i >= 0 ; i --)
+    {
+      digitalWrite(CLK , LOW);
+      digitalWrite(DATA , (data>>i) & 0x01);
+      digitalWrite(CLK, HIGH);
+    }
+    digitalWrite(CS,HIGH);
+  }
+if(dis==2)
+  {
+    digitalWrite(CS2,LOW);
+    for(int i = 7; i >= 0 ; i --)
+    {
+      digitalWrite(CLK2 , LOW);
+      digitalWrite(DATA2 , (add>>i) & 0x01);
+      digitalWrite(CLK2,HIGH);
+    }
+    for(int i = 7 ;  i >= 0 ; i --)
+    {
+      digitalWrite(CLK2 , LOW);
+      digitalWrite(DATA2 , (data>>i) & 0x01);
+      digitalWrite(CLK2, HIGH);
+    }
+    digitalWrite(CS2,HIGH);
+  }
+
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void INT_TIMER_DISP()
+{
+   DATA_SEND(1,0,1);
+   DATA_SEND(2,0,1);
+   DATA_SEND(3, (0 | 0b10000000),1);
+   DATA_SEND(4,0,1);
+}
+void INT_TEMP_HUM_DISP()
+{
+   DATA_SEND(1,0,2);
+   DATA_SEND(2,0,2);
+   DATA_SEND(3,0,2);
+   DATA_SEND(4,0,2);  
+   DATA_SEND(5,0,2);
+   DATA_SEND(6,0,2);
+}
+void INT_MAX19_1()
+{
+  
+  DATA_SEND(0x09,0xFF,1); //decode (code b)
+  DATA_SEND(0x0A,0x0F,1); //intensity
+  DATA_SEND(0x0B,0x07,1); //limit
+  DATA_SEND(0x0C,0x01,1); //shutdown
+  DATA_SEND(0x0F,0x00,1); //normal mode
+  
+}
+void INT_MAX19_2()
+{
+  
+  DATA_SEND(0x09,0xFF,2); //decode (code b)
+  DATA_SEND(0x0A,0x0F,2); //intensity
+  DATA_SEND(0x0B,0x07,2); //limit
+  DATA_SEND(0x0C,0x01,2); //shutdown
+  DATA_SEND(0x0F,0x00,2); //normal mode
+  
+}
+ s = 0;
 int aa, p, time, m = 1;
 
 #define DIN 5
